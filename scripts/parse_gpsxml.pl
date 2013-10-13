@@ -33,6 +33,13 @@ our $datestr = $arr[1];
 our $sth;
 our $bssid_regex = '^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$';
 
+# Sanity check on database file type
+my $filetype = `file $dbfile`;
+if ($filetype !~ /SQLite/) {
+	print "Error: $dbfile is not a valid SQLite database\n";
+	exit(3);
+}
+
 # Connect to database file
 our $dbh = DBI->connect("dbi:SQLite:dbname=$dbfile",
 	"",

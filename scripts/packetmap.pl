@@ -5,13 +5,15 @@ use warnings;
 use POSIX;
 use DBI;
 use DBD::SQLite;
+use Geo::Coordinates::UTM;
 use Math::Matrix;
 use Math::Trig;
 use Math::Trig ':radial';
 use Data::Dumper;
 
-# packetmap.pl -- Given a BSSID, produces a KML map with points marking each packet received from that station, along with several predictions of the access point/router location
-# This program requires a giskismet-generated sqlite database loaded with packet data from one (or any) relevent gpsxml files containing data about that network.
+# packetmap.pl -- Given the BSSID or ESSID of a access point, produces a KML map with points marking each
+# packet received from that access point, along with several predictions of the access point/router location
+# This program requires a giskismet-generated sqlite database loaded with packet data from one (or any) relevant gpsxml files containing data about that network.
 # (use my parse_gpsxml.pl script to load gpsxml files into giskismet databases)
 
 # Author: Kevin Buchik <kdbuchik@gmail.com>
@@ -27,6 +29,7 @@ my $ssid = "snafubar";
 my $stdout_flag = 0;
 my $kmlset_flag = 0;
 my $SSID_query = 0;
+my $allssids_flag = 0;
 my $metadata_flag = 0;
 
 # Parameter parse
@@ -51,6 +54,9 @@ for (my $i=0; $i<$ARGS; $i++) {
 			if ($arg =~ /^-(h|-help)$/) {
 				&usage();
 			}
+			elsif ($arg =~ /^-a(-all)$/) {
+				$allssids_flag = 1;
+			}
 			elsif ($arg =~ /^-(d|-db)$/) {
 				$i++;
 				$dbfile = $ARGV[$i] or die "Error: -d switch requires an argument";
@@ -58,13 +64,13 @@ for (my $i=0; $i<$ARGS; $i++) {
 			elsif ($arg =~ /^-(k|-kml)$/) {
 				$i++;
 				$KML_file = $ARGV[$i] or die "Error: -k switch requires an argument";
-				$kmlset_flag++;
+				$kmlset_flag = 1;
 			}
 			elsif ($arg =~ /^-(m|-meta)$/) {
-				$metadata_flag++;
+				$metadata_flag = 1;
 			}
-			elsif ($arg =~ /^-o$/) {
-				$stdout_flag++;
+			elsif ($arg =~ /^-O$/) {
+				$stdout_flag = 1;
 			}
 		} else {
 			print "Unrecognized parameter $arg\n";
@@ -79,13 +85,18 @@ if ($kmlset_flag==0 and $stdout_flag==0) {
 	$kmlset_flag = 1;
 }
 
+# Sanity check on database file type
+my $filetype = `file $dbfile`;
+if ($filetype !~ /SQLite/) {
+	print "Error: $dbfile is not a valid SQLite database\n";
+	exit(3);
+}
+
 our $dbh = DBI->connect("dbi:SQLite:dbname=$dbfile",
 	"",
 	"",
 	{ RaiseError => 1}
 ) or die $DBI::errstr;
-
-#### Sanity check on database file here ####
 
 my $query;
 my $sth;
@@ -144,15 +155,24 @@ if ($metadata_flag==1) {
 	exit(0);
 }
 
-my $KMLname = sprintf("Packet map for access point \"%s\"", $router->{'ESSID'});
+my $KMLname = sprintf("Packet map for network \"%s\"", $router->{'ESSID'});
+if ($SSID_query==0) {
+	$KMLname = sprintf("Packet map for network %s", $router->{'BSSID'});
+}
 my $KMLdesc = sprintf("Packets received: %d; using centroid algorithm for access point localization", $numPackets);
+# Generate KML header
 my $KML_output = &create_KML_header($KMLname, $KMLdesc);
+
 # Generate router placemarker
 $KML_output .= &create_router_KML($router, 'ffff0000', $router_icon, $centroidgps[1], $centroidgps[0], $centroidgps[2])."\n";
+
 # Generate packet placemarkers
 foreach my $packet (@packets) {
+	# Packets are yellow by default
 	my $color = '7f00ffff';
+	# Weakest packet is red
 	if ($$packet{'signal'} == $minsignal) { $color = 'ff0000ff'; }
+	# Strongest packet (aka where giskismet places the router) is green
 	if ($$packet{'signal'} == $maxsignal) { $color = 'ff00ff00'; }
 	$KML_output .= &create_packet_KML($packet, $color, $packet_icon);
 }
@@ -190,104 +210,11 @@ sub centroid #(@packets)
 	return @centroid;
 }
 
-# Approximates the location of an 802.11 access point using trilateration
-# UNFINISHED as of 10/10/2013 -- do not use
-sub trilateration #(@packets)
-{
-	my(@packets) = @{$_[0]} or die $!;
-	my $sth = $dbh->prepare("SELECT AVG(gpslat) FROM packets");
-	$sth->execute or die $DBI::errstr;
-	my $avglat = $sth->fetchrow_array();
-	
-	# Find the edge packets
-	my $minlat = 90.0;
-	my $maxlat = -90.0;
-	my $minlon = 180.0;
-	my $maxlon = -180.0;
-	foreach my $packet (@packets) {
-		my $latitude = $packet->{'gpslat'};
-		my $longitude = $packet->{'gpslon'};
-		if ($latitude < $minlat) { $minlat = $latitude; }
-		if ($latitude > $maxlat) { $maxlat = $latitude; }
-		if ($longitude < $minlon) { $minlon = $longitude; }
-		if ($longitude > $maxlon) { $maxlon = $longitude; }
-	}	
-	# Points -> { +lat, +lon, -lat, -lon }
-	#printf("Min/max latitude: %f, %f\n", $minlat, $maxlat);
-	#printf("Min/max longitude: %f, %f\n", $minlon, $maxlon);
-	my(@points);	# Array of packet hashref objects
-	for (my $i=1; $i<=4; $i++) {
-		my $condition = "";
-		if ($i==1) {
-			$condition = " WHERE gpslat=\"$maxlat\"";
-		} elsif ($i==2) {
-			$condition = " WHERE gpslon=\"$maxlon\"";
-		} elsif ($i==3) {
-			$condition = " WHERE gpslat=\"$minlat\"";
-		} elsif ($i==4) {
-			$condition = " WHERE gpslon=\"$minlon\"";
-		}
-		$sth = $dbh->prepare("SELECT * FROM packets$condition");
-		$sth->execute() or die $DBI::errstr;
-		push(@points, $sth->fetchrow_hashref());
-	}
-	
-	# Calculate local earth radius values for coordinate transformations
-	#my $rho = &geodetic_radius($avglat);
-	my $rho = 6371009.0;
-	
-	# Extract coordinate values from edge packets and convert to cartesian
-	my ($X_a, $Y_a, $Z_a) = spherical_to_cartesian($rho, deg2rad($points[0]->{'gpslon'}), deg2rad($points[0]->{'gpslat'}));
-	my $R_a = abs($points[0]->{'signal'});
-	my ($X_b, $Y_b, $Z_b) = spherical_to_cartesian($rho, deg2rad($points[1]->{'gpslon'}), deg2rad($points[1]->{'gpslat'}));
-	my $R_b = abs($points[1]->{'signal'});
-	my ($X_c, $Y_c, $Z_c) = spherical_to_cartesian($rho, deg2rad($points[2]->{'gpslon'}), deg2rad($points[2]->{'gpslat'}));
-	my $R_c = abs($points[2]->{'signal'});
-	my ($X_d, $Y_d, $Z_d) = spherical_to_cartesian($rho, deg2rad($points[3]->{'gpslon'}), deg2rad($points[3]->{'gpslat'}));
-	my $R_d = abs($points[3]->{'signal'});
-	
-	# Debug reports
-	printf("Earth radius at %f N: %.3f km\n", $avglat, $rho/1000);
-	printf("Packet A: %f,%f,%f (d=%d)\n", $X_a, $Y_a, $Z_a, $R_a);
-	printf("Packet B: %f,%f,%f (d=%d)\n", $X_b, $Y_b, $Z_b, $R_b);
-	printf("Packet C: %f,%f,%f (d=%d)\n", $X_c, $Y_c, $Z_c, $R_c);
-	printf("Packet D: %f,%f,%f (d=%d)\n", $X_d, $Y_d, $Z_d, $R_d);
-	
-	# Build matrices for the reduced system of arc-equations
-	my $M = new Math::Matrix(
-		[($X_b-$X_a), ($Y_b-$Y_a)],
-		[($X_c-$X_a), ($Y_c-$Y_a)],
-		[($X_d-$X_a), ($Y_d-$Y_a)]
-	);
-	my $rhs = new Math::Matrix(
-		[(($R_b**2 - $R_a**2) + ($X_a**2 - $X_b**2) + ($Y_a**2 - $Y_b**2)),
-		(($R_c**2 - $R_a**2) + ($X_a**2 - $X_c**2) + ($Y_a**2 - $Y_c**2)),
-		(($R_d**2 - $R_a**2) + ($X_a**2 - $X_d**2) + ($Y_a**2 - $Y_d**2))]
-	);
-	#$M->print("\nCoordinate matrix:\n\n");
-	#$rhs->print("\nRHS matrix:\n\n");
-	my $eq_matrix = $M->concat($rhs->transpose);
-	$eq_matrix->print("\nEquation matrix:\n\n");
-	my $solution = $eq_matrix->solve;
-	$solution->print("\nSolution matrix:\n\n");
-	$sth->finish();
-}
-
-sub geodetic_radius #($latitude)
-{
-	my $R_eq = 6378137.0;
-	my $R_pol = 6356752.3;
-	my $latitude = shift or die $!;
-	my $lat = deg2rad($latitude);
-	my $radius = (($R_eq**2 * cos($lat))**2 + ($R_pol**2 * sin($lat))**2)/(($R_eq * cos($lat))**2 + ($R_pol * sin($lat)**2));
-	return sqrt($radius);
-}
-
 # Returns the KML header string for the maps generated by this script
 sub create_KML_header #($name, $desc)
 {
-	my $name = shift;
-	my $desc = shift;
+	my $name = shift or die $!;
+	my $desc = shift or die $!;
 	my $KML = '<?xml version="1.0" encoding="UTF-8"?>'."\n";
 	$KML .= '<kml xmlns="http://earth.google.com/kml/2.2">'."\n";
 	$KML .= "<Document>\n";
@@ -305,7 +232,7 @@ sub create_router_KML #($router, $color, $iconurl, $lat, $lon, $alt)
 	my $lat = shift or die $!;
 	my $lon = shift or die $!;
 	my $alt = shift or die $!;
-
+	
 	my $CDATAstr = sprintf("BSSID: %s<br>Encryption %s<br>Channel: %s<br>Manufacturer: %s<br>", $$router{'BSSID'}, $$router{'Encryption'}, $$router{'Channel'}, $$router{'Manuf'});
 	
 	my $KML = sprintf("<Style id=\"%s_normal\">\n", $$router{'ESSID'});
@@ -347,7 +274,7 @@ sub create_packet_KML #($packet, $color, $iconurl)
 	my $color = shift or die $!;
 	my $iconurl = shift or die $!;
 	
-	my $CDATAstr = sprintf("BSSID: %s<br>Source: %s<br>Date: %s<br>RSS: %d<br>", $$packet{'BSSID'}, $$packet{'source'}, $$packet{'date'}, $$packet{'signal'});
+	my $CDATAstr = sprintf("BSSID: %s<br>Source: %s<br>Date: %s<br>Signal: %d<br>Noise: %d<br>", $$packet{'BSSID'}, $$packet{'source'}, $$packet{'date'}, $$packet{'signal'}, $$packet{'noise'});
 	
 	my $KML = sprintf("<Style id=\"Packet%d_normal\">\n", $$packet{'id'});
 	$KML .= "\t<IconStyle>\n";
@@ -355,7 +282,7 @@ sub create_packet_KML #($packet, $color, $iconurl)
 	$KML .= "\t\t<scale>1</scale>\n";
 	$KML .= "\t\t<Icon>\n\t\t<href>$iconurl</href>\n\t\t</Icon>\n";
 	$KML .= "\t</IconStyle>\n</Style>";
-
+	
 	$KML .= sprintf("<Style id=\"Packet%d_highlight\">\n", $$packet{'id'});
 	$KML .= "\t<IconStyle>\n";
 	$KML .= "\t\t<color>$color</color>\n";

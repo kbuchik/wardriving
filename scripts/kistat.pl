@@ -68,6 +68,13 @@ for (my $i=0; $i<$args; $i++) {
 	}
 }
 
+# Sanity check on database filetype
+my $filetype = `file $dbfile`;
+if ($filetype !~ /SQLite/) {
+	print "Error: $dbfile is not a valid SQLite database\n";
+	exit(3);
+}
+
 # Connect to database file
 our $dbh = DBI->connect(
 	"dbi:SQLite:dbname=$dbfile",
@@ -95,11 +102,13 @@ my $pc_open = ($nets_open/$nets_total)*100;
 printf("Open networks:\t\t\t%d \t[%.2f%%]\n", $nets_open, $pc_open);
 
 # Get total number of IASTATE/ISU-CARDINAL networks
-$query = "SELECT COUNT(*) FROM $ap_tbl WHERE (ESSID='IASTATE' OR ESSID='ISU-CARDINAL') AND Encryption='None'";
+$query = "SELECT COUNT(*) FROM $ap_tbl WHERE ((ESSID='IASTATE' OR ESSID='ISU-CARDINAL') AND Encryption='None') OR ESSID='eduroam' OR ESSID='ISU-PRESS' OR ESSID='ISU-PREMIUM' OR ESSID LIKE 'CNDE'";
 my $nets_isu = &count_query($query);
+my $nets_open_isu = &count_query("SELECT COUNT(*) FROM $ap_tbl WHERE (ESSID='IASTATE' OR ESSID='ISU-CARDINAL') AND Encryption='None'");
 my $pc_isu = ($nets_isu/$nets_total)*100;
-my $pcopen_isu = ($nets_isu/$nets_open)*100;
-printf("Total ISU networks:\t\t%d \t[%.2f%% of open, %.2f%% of total]\n", $nets_isu, $pcopen_isu, $pc_isu);
+my $pcopen_isu = ($nets_open_isu/$nets_open)*100;
+printf("Total ISU networks:\t\t%d \t[%.2f%% of total]\n", $nets_isu, $pc_isu);
+printf("Total open ISU networks:\t%d \t[%.2f%% of open]\n", $nets_open_isu, $pcopen_isu);
 
 # Default guest networks
 $query = "SELECT COUNT(*) FROM $ap_tbl WHERE Encryption='None' AND (ESSID LIKE \"%-guest\" OR ESSID LIKE \"%.guests\") AND ESSID<>\"AmesGuest\"";
@@ -115,7 +124,7 @@ my $pc_openprint = ($nets_openprint/$nets_total)*100;
 my $pcopen_print = ($nets_openprint/$nets_open)*100;
 printf("Open printers:\t\t\t%d \t[%.2f%% of open, %.2f%% of total]\n", $nets_openprint, $pcopen_print, $pc_openprint);
 
-my $other_open = $nets_open-($nets_isu+$nets_guest+$nets_openprint);
+my $other_open = $nets_open-($nets_open_isu+$nets_guest+$nets_openprint);
 my $pcopen_other = ($other_open/$nets_open)*100;
 my $pc_other = ($other_open/$nets_total)*100;
 printf("Other open networks\t\t%d \t[%.2f%% of open, %.2f%% of total]\n\n", $other_open, $pcopen_other, $pc_other);
@@ -183,7 +192,8 @@ if ($collisions == 0) {
 	print ">>>>> $collisions BSSID COLLISIONS DETECTED!! <<<<<\n";
 }
 
-print "\n---Excluding all \"IASTATE\" and \"ISU-CARDINAL\" ESSIDs for the following calculations---\n";
+print "\n---Excluding all Iowa State networks for the following calculations---\n";
+print "(includes the following SSIDs: IASTATE, ISU-CARDINAL, ISU-PRESS, ISU-PREMIUM, eduroam and CNDE)\n";
 my $nets_nonisu = $nets_total-$nets_isu;
 my $nets_open_nonisu = &count_query("SELECT COUNT(*) FROM $ap_tbl WHERE (ESSID<>'IASTATE' AND ESSID<>'ISU-CARDINAL') AND Encryption='None'");
 my $pc_open_nonisu = ($nets_open_nonisu/$nets_nonisu)*100;
@@ -302,8 +312,10 @@ sub rank_field #($field, $num, $headstr, $setsize) returns void
 	my $sth = $dbh->prepare($query);
 	$sth->execute() or die $!;
 	print "$headstr:\n";
+	
 	for (my $i=0; $i<$num; $i++) {
 		my(@row) = $sth->fetchrow_array();
+		if (!defined($row[0])) { last; }
 		my $marker = '#'.($i+1).':';
 		my $value;
 		my $count = $row[1];
@@ -336,10 +348,11 @@ sub list_chans #($setsize) returns void
 # Returns the number of rows/access points which have identical BSSIDs
 sub bssid_clash #($nets_total) returns int
 {
-	my $nets_total = shift;
+	my $nets_total = shift or die $!;
 	my $sth = $dbh->prepare("SELECT COUNT(DISTINCT BSSID) FROM wireless");
 	$sth->execute() or die $!;
 	my(@row) = $sth->fetchrow_array();
+	if (!defined($row[0])) { return 0; }
 	return $nets_total-$row[0];
 }
 
@@ -350,6 +363,7 @@ sub count_ssid #($str) returns int (number ESSIDs $str is found in)
 	my $sth = $dbh->prepare("SELECT COUNT(*) FROM wireless WHERE ESSID LIKE \"%$str%\"");
 	$sth->execute() or die $!;
 	my(@row) = $sth->fetchrow_array();
+	if (!defined($row[0])) { return 0; }
 	return $row[0];
 }
 

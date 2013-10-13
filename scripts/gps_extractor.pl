@@ -32,6 +32,13 @@ foreach my $arg (@ARGV) {
 	}
 }
 
+# Sanity check on database file type
+my $filetype = `file $dbfile`;
+if ($filetype !~ /SQLite/) {
+	print "Error: $dbfile is not a valid SQLite database\n";
+	exit(3);
+}
+
 # Connect to database
 my $dbh = DBI->connect(
 	"dbi:SQLite:dbname=$dbfile",

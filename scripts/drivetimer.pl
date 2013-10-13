@@ -11,11 +11,9 @@ use warnings;
 use XML::Simple;
 use POSIX;
 
-# Load XML
 my $xml = new XML::Simple;
 my $totalsecs = 0;
 my $runs = 0;
-
 
 if (scalar(@ARGV)==0) {
 	my(@files) = <*>;
