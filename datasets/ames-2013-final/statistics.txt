@@ -1,0 +1,123 @@
+Kistat output generated on Sat Oct 12 16:29:01 2013
+Connected to wireless.dbl...using SQLite version 3.7.17
+
+Total networks:			27832
+
+Open networks:			5202 	[18.69%]
+Total ISU networks:		2261 	[8.12% of total]
+Total open ISU networks:	1819 	[34.97% of open]
+Default guest networks:		1343 	[25.82% of open, 4.83% of total]
+Open printers:			160 	[3.08% of open, 0.57% of total]
+Other open networks		1880 	[36.14% of open, 6.75% of total]
+
+WEP networks:			1520 	[5.46%]
+Total WPA networks:		21110 	[75.85%]
+WPA networks without AES:	2035 	[9.64% of WPA, 7.31% of total]
+WPA+AES networks:		19075 	[68.54%]
+
+"Cloaked" networks:		1291 	[4.64%]
+Routers with known subnet IPs:	567 	[2.04%]
+Wireless printers:		387 	[0.01%]
+Networks on atypical channels:	5348 	[19.22%]
+Unique vendors:			150
+No BSSID collisions detected
+
+---Excluding all Iowa State networks for the following calculations---
+(includes the following SSIDs: IASTATE, ISU-CARDINAL, ISU-PRESS, ISU-PREMIUM, eduroam and CNDE)
+Non-ISU open networks:	3383 	[13.23%]
+WEP networks:		1520 	[5.94%]
+WPA networks:		21110 	[82.55%]
+WPA+TKIP networks:	2035 	[7.96%]
+WPA+AES networks:	19075 	[74.60%]
+---End of ISU network exclusion---
+
+---Manufacturer statistics---
+Cisco:			8508 	[30.57%]
+Netgear:		4486 	[16.12%]
+Actiontec:		2524 	[9.07%]
+Belkin:			2353 	[8.45%]
+Apple:			958 	[3.44%]
+D-Link:			516 	[1.85%]
+Others:			8487 	[30.49%]
+Unknown:		3801 	[13.66%]
+
+Top 15 most common SSIDs:
+#1:   ISU-CARDINAL        1086   [3.90%]
+#2:   IASTATE             735    [2.64%]
+#3:   eduroam             398    [1.43%]
+#4:   linksys             365    [1.31%]
+#5:   NETGEAR             189    [0.68%]
+#6:   ACTIONTEC           105    [0.38%]
+#7:   APDwifi             58     [0.21%]
+#8:   ACHwifi             56     [0.20%]
+#9:   ACSD AirNet         50     [0.18%]
+#10:  mgmcpublic          46     [0.17%]
+#11:  vocera              44     [0.16%]
+#12:  AmesGuest           42     [0.15%]
+#13:  attwifi             36     [0.13%]
+#14:  gateway-center      36     [0.13%]
+#15:  ASUS                33     [0.12%]
+
+802.11 channels by channel ID:
+Ch0                       290    [1.04%]
+Ch1                       7551   [27.13%]
+Ch2                       1045   [3.75%]
+Ch3                       685    [2.46%]
+Ch4                       467    [1.68%]
+Ch5                       321    [1.15%]
+Ch6                       7630   [27.41%]
+Ch7                       670    [2.41%]
+Ch8                       429    [1.54%]
+Ch9                       914    [3.28%]
+Ch10                      523    [1.88%]
+Ch11                      7303   [26.24%]
+Ch12                      1      [0.00%]
+Ch13                      3      [0.01%]
+
+802.11 channels by rank:
+#1:   Ch6                 7630   [27.41%]
+#2:   Ch1                 7551   [27.13%]
+#3:   Ch11                7303   [26.24%]
+#4:   Ch2                 1045   [3.75%]
+#5:   Ch9                 914    [3.28%]
+#6:   Ch3                 685    [2.46%]
+#7:   Ch7                 670    [2.41%]
+#8:   Ch10                523    [1.88%]
+#9:   Ch4                 467    [1.68%]
+#10:  Ch8                 429    [1.54%]
+#11:  Ch5                 321    [1.15%]
+
+Top 15 router manufacturers:
+#1:   Cisco-Li            5151   [18.51%]
+#2:   Netgear             4486   [16.12%]
+#3:   Cisco               2949   [10.60%]
+#4:   Actionte            2524   [9.07%]
+#5:   BelkinIn            2292   [8.24%]
+#6:   Apple               810    [2.91%]
+#7:   ZyxelCom            633    [2.27%]
+#8:   Motorola            499    [1.79%]
+#9:   Pegatron            483    [1.74%]
+#10:  CiscoCon            408    [1.47%]
+#11:  D-Link              379    [1.36%]
+#12:  HitronTe            243    [0.87%]
+#13:  HewlettP            174    [0.63%]
+#14:  Tp-LinkT            174    [0.63%]
+#15:  AsustekC            165    [0.59%]
+
+Top 15 (local) router IP addresses:
+#1:   undefined           27265  [97.96%]
+#2:   10.10.20.11         10     [0.04%]
+#3:   10.7.15.254         8      [0.03%]
+#4:   129.186.201.254     6      [0.02%]
+#5:   0.0.0.0             5      [0.02%]
+#6:   192.168.0.1         5      [0.02%]
+#7:   192.168.1.100       4      [0.01%]
+#8:   10.0.235.46         3      [0.01%]
+#9:   10.1.3.122          3      [0.01%]
+#10:  10.10.12.254        3      [0.01%]
+#11:  10.10.120.254       3      [0.01%]
+#12:  10.10.123.254       3      [0.01%]
+#13:  129.186.170.14      3      [0.01%]
+#14:  129.186.26.85       3      [0.01%]
+#15:  129.186.27.12       3      [0.01%]
+
