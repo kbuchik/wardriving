@@ -13,7 +13,7 @@ use warnings;
 
 # Config variables
 my $dbfile = "wireless.dbl";
-my $ap_tbl = "wireless";
+my $table = "wireless";
 my $gpslat_field = "GPSBestLat";
 my $gpslon_field = "GPSBestLon";
 
@@ -29,6 +29,7 @@ foreach my $arg (@ARGV) {
 		$xmlmode = 1;
 	} else {
 		$dbfile = $arg;
+		last;
 	}
 }
 
@@ -48,13 +49,13 @@ my $dbh = DBI->connect(
 ) or die $DBI::errstr;
 
 # Run query to get GPS coordinates for all APs
-my $sth = $dbh->prepare("SELECT $gpslat_field,$gpslon_field FROM $ap_tbl");
+my $sth = $dbh->prepare("SELECT $gpslat_field,$gpslon_field FROM $table");
 $sth->execute() or die $DBI::errstr;
 # Print loop
 while (my(@row) = $sth->fetchrow_array()) {
 	#my(@row) = $sth->fetchrow_array();
 	if ($xmlmode == 1) {
-		printf("<ap latitude=\"%f\" longitude=\"%f\" />", $row[0], $row[1]);
+		printf("<ap latitude=\"%f\" longitude=\"%f\" />\n", $row[0], $row[1]);
 	} else {
 		printf("%f%s%f\n", $row[0], $sep, $row[1]);
 	}
@@ -65,6 +66,13 @@ exit 0;
 
 sub usage
 {
-	print "gps_extractor.pl <dbfile> [--csv]\n";
+	print "Usage: gps_extractor.pl [OPTIONS] <dbfile>\n";
+	print "Extract GPS coordinates from a giskismet database\n";
+	print "If no DB filename is given, \"wireless.dbl\" is used by default\n\n";
+	print "OPTIONS:\n";
+	print "   --csv, --xml\n";
+	print "\tBy default, the coordinates are printed in the form \"[lat] [lon]\"\n";
+	print "\t--csv prints in the form: \"[lat],[lon]\"\n";
+	print "\t--xml prints in the form: <ap latitude=\"[lat]\" longitude=\"[lon]\" />\n\n";
 	exit 1;
 }

@@ -31,6 +31,7 @@ my $kmlset_flag = 0;
 my $SSID_query = 0;
 my $allssids_flag = 0;
 my $metadata_flag = 0;
+my $smallmap_flag = 0;
 
 # Parameter parse
 my $ARGS = scalar(@ARGV);
@@ -69,6 +70,9 @@ for (my $i=0; $i<$ARGS; $i++) {
 			elsif ($arg =~ /^-(m|-meta)$/) {
 				$metadata_flag = 1;
 			}
+			elsif ($arg =~ /^--small$/) {
+				$smallmap_flag = 1;
+			}
 			elsif ($arg =~ /^-O$/) {
 				$stdout_flag = 1;
 			}
@@ -100,9 +104,9 @@ our $dbh = DBI->connect("dbi:SQLite:dbname=$dbfile",
 
 my $query;
 my $sth;
-my $bssid;
+our $bssid;
 if ($SSID_query==1) {
-	$query = "SELECT BSSID FROM wireless WHERE ESSID=\"$ssid\"";
+	$query = "SELECT BSSID FROM wireless WHERE ESSID='$ssid'";
 	$sth = $dbh->prepare($query) or die $DBI::errstr;
 	$sth->execute() or die $DBI::errstr;
 	$bssid = $sth->fetchrow_array();
@@ -110,14 +114,14 @@ if ($SSID_query==1) {
 }
 
 # Get wireless router data
-$query = "SELECT * FROM wireless WHERE BSSID=\"$bssid\"";
+$query = "SELECT * FROM wireless WHERE BSSID='$bssid'";
 $sth = $dbh->prepare($query) or die $DBI::errstr;
 $sth->execute() or die $DBI::errstr;
 my $router = $sth->fetchrow_hashref();
 if (!defined($router)) { &error_AP_not_found($bssid); }
 
 # Get relevant packet data
-$query = "SELECT * FROM packets WHERE BSSID=\"$bssid\"";
+$query = "SELECT * FROM packets WHERE source='$bssid'";
 $sth = $dbh->prepare($query) or die $DBI::errstr;
 $sth->execute or die $DBI::errstr;
 my(@packets);	# Packets array contains hash references for all packet rows
@@ -126,7 +130,7 @@ while (my $ref = $sth->fetchrow_hashref()) {
 }
 
 # Get maximum/minimum signal values
-$query = sprintf("SELECT MIN(signal),MAX(signal) FROM packets WHERE BSSID=\"%s\"", $router->{'BSSID'});
+$query = sprintf("SELECT MIN(signal),MAX(signal) FROM packets WHERE BSSID='%s'", $router->{'BSSID'});
 $sth = $dbh->prepare($query) or die $DBI::errstr;
 $sth->execute or die $DBI::errstr;
 my ($minsignal,$maxsignal) = $sth->fetchrow_array();
@@ -135,7 +139,7 @@ my $numPackets = scalar(@packets);
 my(@centroidgps) = &centroid(\@packets);
 my $clone_nets;
 if ($SSID_query==1) {
-	$query = sprintf("SELECT COUNT(*) FROM wireless WHERE ESSID=\"%s\"", $router->{'ESSID'});
+	$query = sprintf("SELECT COUNT(*) FROM wireless WHERE ESSID='%s'", $router->{'ESSID'});
 	$sth = $dbh->prepare($query);
 	$sth->execute() or die $DBI::errstr;
 	$clone_nets = $sth->fetchrow_array();
@@ -167,14 +171,32 @@ my $KML_output = &create_KML_header($KMLname, $KMLdesc);
 $KML_output .= &create_router_KML($router, 'ffff0000', $router_icon, $centroidgps[1], $centroidgps[0], $centroidgps[2])."\n";
 
 # Generate packet placemarkers
-foreach my $packet (@packets) {
-	# Packets are yellow by default
+# Packets are yellow by default
+if ($smallmap_flag == 1) {
 	my $color = '7f00ffff';
-	# Weakest packet is red
-	if ($$packet{'signal'} == $minsignal) { $color = 'ff0000ff'; }
-	# Strongest packet (aka where giskismet places the router) is green
-	if ($$packet{'signal'} == $maxsignal) { $color = 'ff00ff00'; }
-	$KML_output .= &create_packet_KML($packet, $color, $packet_icon);
+	my(@fourpack) = &get_edge_packets(\@packets);
+	for (my $i=0; $i<4; $i++) {
+		my $packet = $fourpack[$i];
+		if ($i==0) {
+			$KML_output .= &create_packet_KML($packet, $color, $packet_icon, "Bound A");
+		} elsif ($i==1) {
+			$KML_output .= &create_packet_KML($packet, $color, $packet_icon, "Bound B");
+		} elsif ($i==2) {
+			$KML_output .= &create_packet_KML($packet, $color, $packet_icon, "Bound C");
+		} elsif ($i==3) {
+			$KML_output .= &create_packet_KML($packet, $color, $packet_icon, "Bound D");
+		}
+	}
+}
+else {
+	foreach my $packet (@packets) {
+		my $color = '7f00ffff';
+		# Weakest packet is red
+		if ($$packet{'signal'} == $minsignal) { $color = 'ff0000ff'; }
+		# Strongest packet (aka where giskismet places the router) is green
+		if ($$packet{'signal'} == $maxsignal) { $color = 'ff00ff00'; }
+		$KML_output .= &create_packet_KML($packet, $color, $packet_icon, "");
+	}
 }
 # Append KML footer
 $KML_output .= "\n</Document>\n</kml>\n";
@@ -208,6 +230,43 @@ sub centroid #(@packets)
 	}
 	my(@centroid) = ($centroidX, $centroidY, $centroidAlt);
 	return @centroid;
+}
+
+sub get_edge_packets #(@packets)
+{	
+	my(@packets) = @{$_[0]} or die $!;
+	my $minlat = 90.0;
+	my $maxlat = -90.0;
+	my $minlon = 180.0;
+	my $maxlon = -180.0;
+	foreach my $packet (@packets) {
+		my $latitude = $packet->{'gpslat'};
+		my $longitude = $packet->{'gpslon'};
+		if ($latitude < $minlat) { $minlat = $latitude; }
+		if ($latitude > $maxlat) { $maxlat = $latitude; }
+		if ($longitude < $minlon) { $minlon = $longitude; }
+		if ($longitude > $maxlon) { $maxlon = $longitude; }
+	}	
+	# Points -> { +lat, -lon, -lat, +lon }
+	#printf("Min/max latitude: %f, %f\n", $minlat, $maxlat);
+	#printf("Min/max longitude: %f, %f\n", $minlon, $maxlon);
+	my(@points);	# Array of packet hashref objects
+	for (my $i=1; $i<=4; $i++) {
+		my $condition = "";
+		if ($i==1) {
+			$condition = " WHERE gpslat=\"$maxlat\"";
+		} elsif ($i==2) {
+			$condition = " WHERE gpslon=\"$minlon\"";
+		} elsif ($i==3) {
+			$condition = " WHERE gpslat=\"$minlat\"";
+		} elsif ($i==4) {
+			$condition = " WHERE gpslon=\"$maxlon\"";
+		}
+		$sth = $dbh->prepare("SELECT * FROM packets$condition");
+		$sth->execute() or die $DBI::errstr;
+		push(@points, $sth->fetchrow_hashref());
+	}
+	return @points;
 }
 
 # Returns the KML header string for the maps generated by this script
@@ -268,13 +327,15 @@ sub create_router_KML #($router, $color, $iconurl, $lat, $lon, $alt)
 }
 
 # Returns a KML string describing the placemark for a packet
-sub create_packet_KML #($packet, $color, $iconurl)
+sub create_packet_KML #($packet, $color, $iconurl, $packet_name)
 {
 	my $packet = shift or die "Error: create_packet_KML() called with no packet reference";
 	my $color = shift or die $!;
 	my $iconurl = shift or die $!;
+	my $packet_name = shift;
+	if(!defined($packet_name)) { my $packet_name = ""; }
 	
-	my $CDATAstr = sprintf("BSSID: %s<br>Source: %s<br>Date: %s<br>Signal: %d<br>Noise: %d<br>", $$packet{'BSSID'}, $$packet{'source'}, $$packet{'date'}, $$packet{'signal'}, $$packet{'noise'});
+	my $CDATAstr = sprintf("Packet ID: %d<br>BSSID: %s<br>Source: %s<br>Date: %s<br>Signal: %d<br>Noise: %d<br>", $$packet{'id'}, $$packet{'BSSID'}, $$packet{'source'}, $$packet{'date'}, $$packet{'signal'}, $$packet{'noise'});
 	
 	my $KML = sprintf("<Style id=\"Packet%d_normal\">\n", $$packet{'id'});
 	$KML .= "\t<IconStyle>\n";
@@ -297,7 +358,7 @@ sub create_packet_KML #($packet, $color, $iconurl)
 	$KML .= sprintf("\t<styleUrl>Packet%d_highlight</styleUrl>\n", $$packet{'id'});
 	$KML .= "\t</Pair>\n</StyleMap>\n";
 	
-	$KML .= "<Placemark>\n\t<name></name>\n";
+	$KML .= "<Placemark>\n\t<name>$packet_name</name>\n";
 	$KML .= sprintf("\t<styleUrl>#Packet%d_styleMap</styleUrl>\n", $$packet{'id'});
 	$KML .= "\t<description><![CDATA[$CDATAstr]]></description>\n";
 	$KML .= "\t<Point>\n";
@@ -328,7 +389,10 @@ sub usage
 	print "\tIf no -k option is given, saves to \"[SSID]-packetmap.kml\"\n";
 	print "   -m, --meta\n";
 	print "\tPrints metadata/statistics about the network and packets instead of generating a map";
-	print "   -o\n";
-	print "\tPrints to standard out instead of to a file\n\n";
+	print "   -O\n";
+	print "\tPrints to standard out instead of to a file\n";
+	print "   --small\n";
+	print "\tCreates a map with only 6 packets: strongest, weakest, farthest north/east/south/west\n";
+	print "\t(Useful for testing trilateration algorithm)\n\n";
 	exit(1);
 }

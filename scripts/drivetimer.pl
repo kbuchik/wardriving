@@ -14,20 +14,39 @@ use POSIX;
 my $xml = new XML::Simple;
 my $totalsecs = 0;
 my $runs = 0;
+my $verbose_flag = 0;
+my $gpsxml_declared = 0;
+my $path = "";
 
-if (scalar(@ARGV)==0) {
+# Parameter parse
+foreach my $arg (@ARGV) {
+	if ($arg =~ /^-(h|-help)$/) {
+		&usage();
+	} elsif ($arg =~ /^-v$/) {
+		$verbose_flag = 1;
+	} else {
+		$path = shift;
+		$gpsxml_declared = 1;
+	}
+}
+
+if ($gpsxml_declared == 0) {
 	my(@files) = <*>;
 	foreach my $doc (@files) {
 		# if the file is an XML file, count the seconds
 		if (`file $doc` =~ /XML/) {
-			print "Parsing XML file $doc...\n";
+			if ($verbose_flag == 1) {
+				print "Parsing XML file $doc...\n";
+			}
 			my $packet_data = $xml->XMLin($doc) or die "Error parsing XML file $doc";
 			my(@packets) = @{ $packet_data->{'gps-point'} } or next;
 			my $start = $packets[0]->{'time-sec'} or next;
 			my $end = $packets[scalar(@packets)-1]->{'time-sec'};
 			$totalsecs += $end-$start;
 			$runs++;
-			printf("Counted %d seconds in %s (total %s)\n", ($end-$start), $doc, $totalsecs);
+			if ($verbose_flag == 1) {
+				printf("Counted %d seconds in %s (total %s)\n", ($end-$start), $doc, $totalsecs);
+			}
 		}
 	}
 	if ($runs == 0) { die "Error: no valid XML files found in directory"; }
@@ -37,8 +56,6 @@ if (scalar(@ARGV)==0) {
 	print "Total time: $timestr ($totalsecs seconds total)\n";
 	print "Average per gpsxml file: $avgstr ($avgtime seconds)\n";
 } else {
-	if ($ARGV[0] =~ /^-(h|-help)$/) { die &usage(); }
-	my $path = shift or die "Usage: drivetimer.pl <gpsxml file|directory path>\n";
 	my $filetype = `file $path`;
 	if ($filetype =~ /XML/) {
 		my $packet_data = $xml->XMLin($path) or die $!;
@@ -57,8 +74,11 @@ exit(0);
 
 sub usage
 {
-	print "Usage: drivetimer.pl [.gpsxml file]\n";
+	print "Usage: drivetimer.pl [OPTIONS] [.gpsxml file]\n";
 	print "If no .gpsxml file is given, script will attempt to parse all XML files in the current directory\n";
+	print "OPTIONS:\n";
+	print "   -v:\n";
+	print "\tVerbose mode (print additional messages for each file parsed)\n";
 	exit(1);
 }
 
