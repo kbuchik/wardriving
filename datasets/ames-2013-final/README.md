@@ -14,14 +14,15 @@ I have also included (in kismet-data.tar.gz) gpsxml and netxml data files from K
 * kismet-data.tar.gz -> Archive of raw .netxml (describes networks) and .gpsxml (describes packets) data from Kismet
 * KMLs -> Map files; open with Google Earth or another GIS program (or generate your own with `giskismet -q "[query]" -o [output].kml`. The query used to generate each is given.
 	+ Ames-all networks.kml
-		- **"SELECT * FROM wireless"**
+		- **SELECT * FROM wireless**
+	+ Ames-all-long SSIDs.kml
+		- **SELECT * FROM wireless WHERE LENGTH(ESSID) > 15 AND ESSID NOT LIKE "%Print%"**
 	+ Ames-hidden networks.kml
-		- **"SELECT * FROM wireless WHERE Cloaked='true'"**
+		- **SELECT * FROM wireless WHERE Cloaked='true'**
 	+ Ames-ISU networks.kml
-		- **"SELECT * FROM wireless WHERE ((ESSID='IASTATE' OR ESSID='ISU-CARDINAL') AND Encryption='None') OR ESSID='eduroam' OR ESSID='ISU-PRESS' OR ESSID='ISU-PREMIUM' OR ESSID LIKE 'CNDE'"**
+		- **SELECT * FROM wireless WHERE ((ESSID='IASTATE' OR ESSID='ISU-CARDINAL') AND Encryption='None') OR ESSID='eduroam' OR ESSID='ISU-PRESS' OR ESSID='ISU-PREMIUM' OR ESSID LIKE 'CNDE'**
 	+ Ames-open networks.kml
-		- **"SELECT * FROM wireless WHERE Encryption='None'"**
+		- **SELECT * FROM wireless WHERE Encryption='None'**
 	+ Ames-WEP networks.kml
-		- **"SELECT * FROM wireless WHERE Encryption='WEP'"**
-
+		- **SELECT * FROM wireless WHERE Encryption='WEP'**
 

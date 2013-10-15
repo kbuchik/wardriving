@@ -1,5 +1,5 @@
-Kistat output generated on Sat Oct 12 16:29:01 2013
-Connected to wireless.dbl...using SQLite version 3.7.17
+Kistat output generated on Mon Oct 14 09:09:53 2013
+Connected to wireless-master.dbl...using SQLite version 3.7.17
 
 Total networks:			27832
 
