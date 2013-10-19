@@ -57,7 +57,7 @@ OPTIONS:
 	--xml prints in the form: <ap latitude="[lat]" longitude="[lon]" />`
 
 ### parse\_gpsxml.pl
-Parses packet metadata from Kismet's gpsxml files and imports to an SQLite database (use the corresponding wireless.dbl from giskismet for compatibility with future tools like packetmap.pl). gpsxml files contain information about every packet received during a wardriving run, including GPS coordinates, source BSSID and signal strength.
+Parses packet metadata from Kismet's gpsxml files and imports to an SQLite database (use the corresponding wireless.dbl from giskismet for compatibility with tools like packetmap.pl). gpsxml files contain information about every packet received during a wardriving run, including GPS coordinates, source BSSID and signal strength.
 
 Help message:
 
@@ -67,3 +67,6 @@ Parses gpsxml files from kismet-newcore and imports them into a database
 OPTIONS:
    -d, --database [SQLite file]
 	Use database file (default: wireless.dbl)`
+
+### packetmap.pl
+Generates KML maps showing all packets received from a given access point, and approximates the location of the AP using the centroid (geometric average) algorithm. Location estimatation using trilateration is under development. The packet with the highest signal strength is colored green (this is where Kismet places the access point by default); lowest signal strength is colored red; all other packets are colored yellow. This script requires a giskismet database which has been loaded with packet data using my parse\_gpsxml.pl script.
