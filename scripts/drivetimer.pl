@@ -45,7 +45,8 @@ if ($gpsxml_declared == 0) {
 			$totalsecs += $end-$start;
 			$runs++;
 			if ($verbose_flag == 1) {
-				printf("Counted %d seconds in %s (total %s)\n", ($end-$start), $doc, $totalsecs);
+				my $timestr = &calc_timestr($end-$start);
+				printf("Counted %d seconds (%s) in %s (total %s)\n", ($end-$start), $timestr, $doc, $totalsecs);
 			}
 		}
 	}
@@ -89,5 +90,11 @@ sub calc_timestr
 	my $m = $seconds/60;
 	my $h = $m/60;
 	$m = $m%60;
-	return sprintf("%dhr %dmin %dsec", $h, $m, $s);
+	my $timestr = "";
+	if ($h == 0 or !defined($h) or $h =~ /^0$/) {
+		$timestr = sprintf("%dmin %dsec", $m, $s);
+	} else {
+		$timestr = sprintf("%dhr %dmin %dsec", $h, $m, $s);
+	}
+	return $timestr;
 }

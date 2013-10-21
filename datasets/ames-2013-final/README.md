@@ -12,6 +12,7 @@ I have also included (in kismet-data.tar.gz) gpsxml and netxml data files from K
 * wireless.dbl -> SQLite database containing the raw import of .netxml data from Kismet, using the giskismet script.
 * statistics.txt -> Unformatted list of counts/percentages from various cross-sections of the dataset. Generated with the command `kistat.pl -m -r wireless.dbl`
 * kismet-data.tar.gz -> Archive of raw .netxml (describes networks) and .gpsxml (describes packets) data from Kismet
+* wardrive-log.txt -> Table showing how the dataset grew with each time I went out driving
 * KMLs -> Map files; open with Google Earth or another GIS program (or generate your own with `giskismet -q "[query]" -o [output].kml`. The query used to generate each is given.
 	+ Ames-all networks.kml
 		- **SELECT * FROM wireless**
