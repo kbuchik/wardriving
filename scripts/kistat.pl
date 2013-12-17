@@ -234,15 +234,14 @@ if ($model_flag == 1) {
 	my $mod_dlink = &count_query("SELECT COUNT(*) FROM $ap_tbl WHERE Manuf LIKE \"%D-Link%\"");
 	$counted_mods += $mod_dlink;
 	my $pc_dlink = ($mod_dlink/$nets_total)*100;
-	printf("D-Link:\t\t\t%d \t[%.2f%%]\n", $mod_dlink, $pc_dlink);
-	
-	my $other_mods = $nets_total-$counted_mods;
-	my $pc_othermods = ($other_mods/$nets_total)*100;
-	printf("Others:\t\t\t%d \t[%.2f%%]\n", $other_mods, $pc_othermods);
+	printf("D-Link:\t\t\t%d \t[%.2f%%]\n", $mod_dlink, $pc_dlink);	
 	my $mod_unknown = &count_query("SELECT COUNT(*) FROM $ap_tbl WHERE Manuf=\"Unknown\"");
 	$counted_mods += $mod_unknown;
 	my $pc_unknown = ($mod_unknown/$nets_total)*100;
-	printf("Unknown:\t\t%d \t[%.2f%%]\n\n", $mod_unknown, $pc_unknown);
+	printf("Unknown:\t\t%d \t[%.2f%%]\n", $mod_unknown, $pc_unknown);
+	my $other_mods = $nets_total-$counted_mods;
+	my $pc_othermods = ($other_mods/$nets_total)*100;
+	printf("Others:\t\t\t%d \t[%.2f%%]\n\n", $other_mods, $pc_othermods);
 }
 
 # Search SSIDs for strings if -s flag is set
